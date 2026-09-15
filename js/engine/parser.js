@@ -1,16 +1,35 @@
 // parser.js — parsing dell'espressione utente (via math.js), riconoscimento
 // del tipo di funzione, ed estrazione dei coefficienti polinomiali.
 
-const UNSUPPORTED_FUNCTIONS = [
+const TRANSCENDENTAL_FUNCTIONS = [
   'sin', 'cos', 'tan', 'cot', 'sec', 'csc',
   'asin', 'acos', 'atan',
   'exp', 'log', 'log10', 'log2',
 ];
 
+// MathLive (tastiera matematica) esporta in ascii-math nomi che math.js non
+// riconosce come funzioni built-in (es. "arcsin" invece di "asin", "ln"
+// invece di "log"): li rinominiamo nell'albero subito dopo il parsing.
+const FUNCTION_ALIASES = {
+  arcsin: 'asin',
+  arccos: 'acos',
+  arctan: 'atan',
+  ln: 'log',
+};
+
+function normalizeFunctionAliases(node) {
+  node.traverse((n) => {
+    if (n.isFunctionNode && FUNCTION_ALIASES[n.fn.name]) {
+      n.fn.name = FUNCTION_ALIASES[n.fn.name];
+    }
+  });
+  return node;
+}
+
 export function parseFunction(exprStr) {
   let node;
   try {
-    node = math.parse(exprStr);
+    node = normalizeFunctionAliases(math.parse(exprStr));
   } catch (e) {
     return { error: 'Espressione non valida: controlla la sintassi (es. usa * per moltiplicare, ^ per le potenze).' };
   }
@@ -25,27 +44,22 @@ export function parseFunction(exprStr) {
     return { error: `Per ora sono ammesse solo funzioni nella variabile x (trovato: ${[...symbols].join(', ')}).` };
   }
 
-  let hasUnsupported = false;
+  let hasTranscendental = false;
   let hasSqrt = false;
   let hasDivision = false;
 
   node.traverse((n) => {
     if (n.isFunctionNode) {
       const name = n.fn.name;
-      if (UNSUPPORTED_FUNCTIONS.includes(name)) hasUnsupported = true;
+      if (TRANSCENDENTAL_FUNCTIONS.includes(name)) hasTranscendental = true;
       if (name === 'sqrt') hasSqrt = true;
     }
     if (n.isOperatorNode && n.fn === 'divide') hasDivision = true;
   });
 
-  if (hasUnsupported) {
-    return {
-      error: 'Per ora sono supportate solo funzioni razionali e irrazionali (con radice quadrata). Esponenziali, logaritmiche e goniometriche arriveranno presto.',
-    };
-  }
-
   let type;
-  if (hasSqrt) type = 'irrational';
+  if (hasTranscendental) type = 'composite';
+  else if (hasSqrt) type = 'irrational';
   else if (hasDivision) type = 'rational-fraction';
   else type = 'rational-poly';
 

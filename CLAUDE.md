@@ -15,14 +15,25 @@ integrato oltre ai Moduli 1,2,4,5,6): `percorso.md` nella root del progetto.
 **Stack:** vanilla JS (ES modules), nessun build step, librerie via CDN:
 math.js (parsing/derivate), KaTeX (formule), function-plot + d3 (grafico),
 MathLive (`<math-field>`, input matematico visuale stile Photomath con
-tastiera simboli integrata — l'output `getValue('ascii-math')` è
-direttamente compatibile con `math.parse()`, nessuna conversione necessaria).
+tastiera simboli integrata — l'output `getValue('ascii-math')` **non** è
+sempre compatibile con `math.parse()` così com'è: MathLive esporta
+`arcsin`/`arccos`/`arctan`/`ln`, che math.js non riconosce (vuole
+`asin`/`acos`/`atan`/`log`) — `parser.js` li rinomina nell'albero subito
+dopo il parsing (`FUNCTION_ALIASES`). Nota anche: il logaritmo in base 10
+inserito con il template con pedice della tastiera MathLive (`log₁₀(x)`)
+NON viene interpretato correttamente da math.js (diventa una
+moltiplicazione implicita insensata) — un utente dovrebbe scrivere
+`log10(x)` come testo semplice; non ancora risolto).
 
-**Scope attuale (deliberatamente limitato):** solo funzioni razionali
-(polinomiali e fratte) e irrazionali nella forma √g(x). Esponenziali,
-logaritmiche, goniometriche, teoremi con dimostrazioni e integrali (presenti
-in `percorso.md`) sono roadmap futura — non aggiungerli senza che l'utente
-lo chieda esplicitamente.
+**Scope attuale:** funzioni razionali (polinomiali e fratte) e irrazionali
+nella forma √g(x) — analisi completa (8 passi). Funzioni composte
+(esponenziali, logaritmiche, goniometriche, radici e frazioni annidate,
+in qualunque combinazione) — **solo il passo Dominio** per ora, calcolato
+in modo generale (vedi sotto); gli altri passi (simmetrie, segno, limiti,
+asintoti, derivate) per le composte sono roadmap futura, da affrontare
+uno alla volta su richiesta esplicita dell'utente — non anticiparli.
+Teoremi con dimostrazioni e integrali (presenti in `percorso.md`) restano
+fuori scope.
 
 ---
 
@@ -30,6 +41,7 @@ lo chieda esplicitamente.
 
 ```
 sito_mate/
+  .gitignore              # .DS_Store, Thumbs.db
   index.html              # home: campo funzione (math-field) + selettore tipo + avvio
   css/
     style.css              # responsive, mobile-first
@@ -39,10 +51,11 @@ sito_mate/
     engine/
       parser.js             # parsing (math.js), riconoscimento tipo, estrazione coefficienti polinomiali
       roots.js               # ricerca radici (algebrica gradi bassi + numerica), intervalli di segno
-      rational.js            # 7 passi calcolati per funzioni razionali (poly/fratte)
-      irrational.js          # 7 passi calcolati per funzioni √g(x)
+      rational.js            # 8 passi {theory,prompt,answer,formulas,graphOps} per funzioni razionali (poly/fratte)
+      irrational.js          # 8 passi {theory,prompt,answer,formulas,graphOps} per funzioni √g(x)
+      composite.js            # SOLO passo Dominio, generale, per funzioni composte (log/goniometriche/esponenziali)
     ui/
-      steps.js               # render di un passo (teoria, testo, formule KaTeX) + stepper
+      steps.js               # render passo: prompt sempre visibile, risposta dietro bottone "Mostra risposta" + stepper
       graph.js                # wrapper function-plot, annotazioni cumulative per passo
     examples/
       rational.js             # esempi fissi già risolti (poly + fratta) per modalità guidata
@@ -58,12 +71,14 @@ sito_mate/
   inserita (calcolo automatico) o senza (teoria + esempio guidato)
 - Input funzione visuale stile Photomath via MathLive (`<math-field>`,
   tastiera simboli integrata, `ascii-math` → `math.parse()` diretto)
-- Motore di calcolo completo (7 passi: dominio, simmetrie/intersezioni,
-  segno, limiti, asintoti, derivata prima/monotonia/estremi, derivata
-  seconda/concavità/flessi) per funzioni razionali (poly e fratte) e per
-  irrazionali nella forma √g(x)
+- Motore di calcolo completo (8 passi: dominio, simmetrie, intersezioni
+  con gli assi, segno, limiti, asintoti, derivata prima/monotonia/estremi,
+  derivata seconda/concavità/flessi) per funzioni razionali (poly e
+  fratte) e per irrazionali nella forma √g(x) — vedi più sotto il modello
+  "prompt → rivela risposta" per come ogni passo viene presentato
 - Grafico (function-plot) che si aggiorna cumulativamente passo dopo passo
-  con le annotazioni del passo corrente (esclusioni dominio, asintoti,
+  (solo per i passi rivelati) con le annotazioni del passo corrente
+  (esclusioni dominio, asintoti,
   punti, estremi)
 - Modalità guidata con esempio fisso per ciascuno dei 3 tipi supportati
 - Teoria di ogni passo arricchita con le regole di `percorso.md` (Moduli
@@ -94,6 +109,80 @@ sito_mate/
   (pubblico, necessario per GitHub Pages gratuito), push di `master` fatto
 - GitHub Pages attivato (branch `master`, root) e verificato online (200
   OK): **https://ranzariccardo.github.io/studio-funzione/**
+- **Modalità calcolata: modello "prompt → rivela risposta" per ogni passo**
+  (architettura attuale, sostituisce un tentativo intermedio con passi
+  Dominio separati in due voci stepper — scartato). Ogni passo (8 totali:
+  Dominio, Simmetrie, Intersezioni con gli assi, Segno, Limiti, Asintoti,
+  Derivata prima, Derivata seconda) mostra sempre teoria + "prompt" (invito
+  a provare a calcolare da solo, senza numeri); un bottone "Mostra
+  risposta" dentro allo stesso passo rivela poi la risposta (in un
+  riquadro `.answer-box`) e le formule. Il grafico (`#graph-wrap`) resta
+  **completamente nascosto** finché nessun passo è stato rivelato; una
+  volta rivelato almeno un passo, mostra solo le graphOps dei passi
+  **rivelati** (non di tutti i passi fino a quello corrente) — mai la
+  curva di f(x), tranne all'ultimo passo (Derivata seconda, flag
+  `revealsCurve: true`), e solo dopo averlo rivelato.
+  Simmetrie e Intersezioni con gli assi sono due passi separati (prima
+  erano uniti); teoria di Simmetrie ora spiega anche il perché è utile
+  saperlo (dimezza il lavoro se la funzione è pari/dispari).
+  Stato tracciato in `state.revealed` (array di booleani per indice,
+  persiste navigando avanti/indietro tra i passi).
+  File: `js/engine/{rational,irrational}.js` (ogni step ritorna
+  `{theory, prompt, answer, formulas, graphOps, revealsCurve?}`),
+  `js/engine/roots.js` (helper `clipIntervals`/`complementIntervals`),
+  `js/ui/steps.js` (`renderStep` gestisce sia il nuovo formato
+  prompt/answer sia il formato legacy `{text}` della modalità guidata,
+  non toccata), `js/ui/graph.js` (graphOps `domainBand` verde/
+  `domainBandExcluded` rosso, opzione `showCurve`), `js/app.js`
+  (`state.revealed`, mostra/nasconde `#graph-wrap` in base a se qualcosa
+  è stato rivelato).
+  Non toccati gli esempi fissi della modalità guidata
+  (`js/examples/*.js`, formato legacy `{title, theory, text, formulas}`
+  senza bottone reveal) — l'utente valuta di rimuovere del tutto il
+  dropdown "esempio guidato" più avanti, quindi non investirci lavoro
+  senza conferma esplicita.
+  Verificato nel browser: razionale fratta e irrazionale √(4-x²) — reveal
+  per passo, stato mantenuto tornando indietro, grafico nascosto finché
+  nulla è rivelato, curva visibile solo all'ultimo passo dopo reveal,
+  nessun errore console.
+- **Riconoscimento e dominio per funzioni composte** (log, goniometriche,
+  esponenziali, radici/frazioni annidate, in qualunque combinazione — su
+  richiesta esplicita, "pensiamoci passo passo": per ora solo il passo
+  Dominio, il resto quando arriveremo ai rispettivi punti di analisi).
+  Metodo generale (`js/engine/composite.js`): si percorre l'intero albero
+  sintattico (`node.traverse`) e si raccoglie un vincolo per ogni
+  componente — denominatore ≠0, radicando ≥0, argomento log >0, coseno/
+  seno ≠0 per tangente/cotangente/secante/cosecante, argomento tra -1 e 1
+  per arcoseno/arcocoseno — riducendo ognuno a una delle tre forme
+  primitive E(x)≥0 / E(x)>0 / E(x)≠0, risolte numericamente (stessa
+  tecnica generica già usata per razionali/irrazionali: `numericRealRoots`
+  + `signIntervals`, che non richiede struttura polinomiale) e intersecate
+  (`roots.js`, nuovo helper `intersectIntervals`). Vincoli stretti (`>`)
+  producono bordi di intervallo aperti nella notazione, non solo punti
+  esclusi separati (bug trovato e corretto: `ln(x)` dava inizialmente
+  "[0,+∞) esclusi i punti x=0", contraddittorio — ora "(0, +∞)").
+  `parser.js`: rimosso il blocco che rifiutava le funzioni trascendenti
+  (`TRANSCENDENTAL_FUNCTIONS`, ex `UNSUPPORTED_FUNCTIONS`), nuovo tipo
+  `'composite'` quando una qualunque è presente (ha priorità su
+  razionale/irrazionale, che restano invariati se non ci sono funzioni
+  trascendenti); aggiunta `FUNCTION_ALIASES` per rinominare
+  arcsin/arccos/arctan/ln (nomi MathLive) in asin/acos/atan/log (nomi
+  math.js) nell'albero appena parsato — bug reale trovato testando con la
+  tastiera matematica vera, non solo con stringhe scritte a mano.
+  `app.js`: `ENGINES` map per instradare `irrational`/`composite` al
+  motore giusto, banner di riconoscimento avvisa che per le composte si
+  calcola solo il dominio.
+  Verificato nel browser con MathLive vero (non solo stringhe): esempio
+  completo di `percorso.md` √(x²-4)·log(x)/(x-3) → `[2, +∞) esclusi i
+  punti x=3` (equivalente a [2,3)∪(3,+∞)); `tan(x)` → esclusioni
+  periodiche troncate alla finestra del grafico con nota "e altri...";
+  `arcsin(x)` → `[-1,1]`; `ln(x)` (via `\ln` LaTeX) → `(0,+∞)`;
+  `sin(x)+exp(x)` → "dominio è tutto ℝ"; nessuna regressione su
+  razionali/irrazionali esistenti; nessun errore console.
+  **Limite noto non risolto:** `log₁₀(x)` inserito con il template a
+  pedice della tastiera MathLive produce ascii-math che math.js interpreta
+  come moltiplicazione implicita insensata, non come log in base 10 (va
+  scritto `log10(x)` come testo semplice).
 
 ### Da fare
 - Bug minore UI mobile: lo scroll/wheel sopra il grafico (function-plot)
@@ -103,13 +192,35 @@ sito_mate/
   function-plot o limitarlo). Trovato verificando la vista mobile nel
   browser (375×812, via iframe perché Chrome su desktop non permette
   finestre più strette di ~557px).
+- Funzioni composte: passi oltre al Dominio (simmetrie, segno, limiti,
+  asintoti, derivate) — da affrontare uno alla volta quando l'utente lo
+  chiede. Il punto critico anticipato è limiti/asintoti per x→±∞: il
+  metodo attuale (confronto gradi numeratore/denominatore) non si
+  generalizza alle composte, e math.js non ha un motore di limiti
+  simbolico — probabile euristica numerica o gerarchia degli infiniti
+  codificata a mano (vedi discussione con l'utente e `percorso.md`
+  Modulo 3).
+- `log10(x)` via tastiera MathLive (template a pedice) non funziona (vedi
+  sopra) — richiede o normalizzare l'ascii-math prodotto o intercettare il
+  pattern nell'albero prima del parsing.
 
 ### Ultimo task eseguito
-Attivato GitHub Pages sul repo `studio-funzione` (branch `master`, root),
-verificato che l'URL pubblico risponde 200. Il sito è online.
+Aggiunto il riconoscimento delle funzioni composte e il calcolo generale
+del dominio, su richiesta esplicita dell'utente di procedere passo passo
+partendo dal dominio. Trovati e corretti 2 bug reali testando con
+MathLive vero (non solo stringhe scritte a mano): alias di nomi funzione
+mancanti (arcsin/arccos/arctan/ln) e notazione dominio contraddittoria
+per vincoli stretti. File toccati: `js/engine/composite.js` (nuovo),
+`js/engine/parser.js` (nuovo tipo `'composite'`, `FUNCTION_ALIASES`),
+`js/engine/roots.js` (helper `intersectIntervals`), `js/theory.js`
+(`COMPOSITE_THEORY`), `js/app.js` (`ENGINES` map, banner di
+riconoscimento). Verificato nel browser, nessun errore console.
 
 ### Prossimo step
-Su richiesta esplicita dell'utente: procedere a piccoli passi (una
-schermata/funzionalità alla volta, verificare, poi continuare — non
-costruire tutto in un unico blocco). Prossimo pezzo da concordare con
-l'utente: verifica mobile, poi init git + primo deploy su GitHub Pages.
+Da concordare con l'utente. Note aperte: (1) prossimo passo di analisi
+per le funzioni composte da scegliere insieme (probabilmente simmetria o
+segno prima di affrontare il punto critico di limiti/asintoti); (2)
+l'utente valuta di rimuovere il dropdown "esempio guidato" dallo step 1
+— non toccare quella parte senza conferma; (3) bug minore scroll sul
+grafico in mobile; (4) limite noto `log10(x)` via tastiera (vedi Da
+fare).

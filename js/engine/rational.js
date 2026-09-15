@@ -1,5 +1,8 @@
-// rational.js — i 7 passi dello studio di funzione per funzioni razionali
+// rational.js — gli 8 passi dello studio di funzione per funzioni razionali
 // (polinomiali o fratte), calcolati sulla funzione specifica dell'utente.
+// Ogni passo mostra sempre teoria + domanda ("prompt"); la risposta viene
+// rivelata dall'utente con un bottone (vedi js/ui/steps.js), e solo allora
+// le sue graphOps vengono aggiunte al grafico (gestito da js/app.js).
 
 import { rationalToCoefficients, formatPolyLatex, compile, toLatex, round } from './parser.js';
 import { realRootsPoly, evaluatePoly, signIntervals, numericRealRoots, polyDegree } from './roots.js';
@@ -7,6 +10,7 @@ import { RATIONAL_THEORY } from '../theory.js';
 
 const EPS = 1e-4;
 const RANGE = { from: -30, to: 30 };
+const VIEW_DOMAIN = { from: -10, to: 10 };
 
 function arraysApproxEqual(a, b, tol = 1e-6) {
   const len = Math.max(a.length, b.length);
@@ -60,7 +64,8 @@ export function computeSteps({ node }) {
 
   const steps = [];
   steps.push(domainStep({ denomRoots, isFraction }));
-  steps.push(symmetryStep({ numerator, denominator, fn, denomRoots }));
+  steps.push(symmetryStep({ numerator, denominator }));
+  steps.push(intersectionsStep({ numerator, fn, denomRoots }));
   steps.push(signStep({ numerator, denominator, fn, numRoots, denomRoots }));
 
   const limitsData = computeLimitsAndAsymptotes({ numerator, denominator, fn, verticalCandidates });
@@ -73,49 +78,74 @@ export function computeSteps({ node }) {
 }
 
 function domainStep({ denomRoots, isFraction }) {
-  const graphOps = [];
-  let text;
+  const prompt = isFraction
+    ? [
+        'Osserva la funzione prima di calcolare: è una frazione, quindi ha un denominatore.',
+        'Vincolo da imporre: il denominatore deve essere diverso da zero — una frazione non è definita se si divide per zero.',
+        'Prova a stabilire da solo per quali x il denominatore si annulla: sono i punti da escludere dal dominio.',
+      ]
+    : [
+        'Osserva la funzione prima di calcolare: è un polinomio, senza frazioni, radici o altre componenti che impongano vincoli.',
+        'Nessun vincolo da imporre. Prova a dedurre da solo il dominio.',
+      ];
+
+  const graphOps = [{ type: 'domainBand', from: VIEW_DOMAIN.from, to: VIEW_DOMAIN.to }];
+  let answer;
   if (!isFraction || denomRoots.length === 0) {
-    text = ['Il denominatore non si annulla mai (o la funzione è un polinomio): il dominio è tutto ℝ.'];
+    answer = ['Il denominatore non si annulla mai (o la funzione è un polinomio): il dominio è tutto ℝ.'];
   } else {
     const sorted = denomRoots.slice().sort((a, b) => a - b);
     const list = sorted.map(fmtNum).join(', ');
-    text = [
+    answer = [
       `Il denominatore si annulla per x = ${list}: questi valori vanno esclusi dal dominio.`,
       `Dominio: ℝ \\ {${list}}.`,
     ];
     sorted.forEach((x) => graphOps.push({ type: 'exclude', x }));
   }
+
   return {
     key: 'domain',
     title: '1. Dominio',
     theory: RATIONAL_THEORY.domain,
-    text,
+    prompt,
+    answer,
     formulas: [],
     graphOps,
   };
 }
 
-function symmetryStep({ numerator, denominator, fn, denomRoots }) {
+function symmetryStep({ numerator, denominator }) {
   const parN = parity(numerator);
   const parD = parity(denominator);
-  let symmetryText;
+  let answerText;
   if (parN !== 'none' && parD !== 'none') {
     const overall = parN === parD ? 'even' : 'odd';
-    symmetryText = overall === 'even'
+    answerText = overall === 'even'
       ? 'f(-x) = f(x): la funzione è pari (simmetrica rispetto all’asse y).'
       : 'f(-x) = -f(x): la funzione è dispari (simmetrica rispetto all’origine).';
   } else {
-    symmetryText = 'La funzione non è né pari né dispari.';
+    answerText = 'La funzione non è né pari né dispari.';
   }
 
+  return {
+    key: 'symmetry',
+    title: '2. Simmetrie',
+    theory: RATIONAL_THEORY.symmetry,
+    prompt: ['Prova a stabilire da solo se questa funzione è pari, dispari o nessuna delle due: calcola f(-x) e confrontalo con f(x).'],
+    answer: [answerText],
+    formulas: [],
+    graphOps: [],
+  };
+}
+
+function intersectionsStep({ numerator, fn, denomRoots }) {
   const graphOps = [];
-  const text = [symmetryText];
+  const answer = [];
 
   if (!denomRoots.some((r) => Math.abs(r) < 1e-6)) {
     const y0 = fn(0);
     if (Number.isFinite(y0)) {
-      text.push(`Intersezione con l’asse y: (0, ${fmtNum(y0)}).`);
+      answer.push(`Intersezione con l’asse y: (0, ${fmtNum(y0)}).`);
       graphOps.push({ type: 'point', x: 0, y: y0, label: '(0, ' + fmtNum(y0) + ')' });
     }
   }
@@ -123,17 +153,18 @@ function symmetryStep({ numerator, denominator, fn, denomRoots }) {
   const numRoots = realRootsPoly(numerator).filter((r) => !denomRoots.some((d) => Math.abs(d - r) < 1e-3));
   if (numRoots.length) {
     const list = numRoots.map(fmtNum).join(', ');
-    text.push(`Intersezioni con l’asse x: x = ${list}.`);
+    answer.push(`Intersezioni con l’asse x: x = ${list}.`);
     numRoots.forEach((x) => graphOps.push({ type: 'point', x, y: 0, label: `(${fmtNum(x)}, 0)` }));
   } else {
-    text.push('Nessuna intersezione con l’asse x.');
+    answer.push('Nessuna intersezione con l’asse x.');
   }
 
   return {
-    key: 'symmetry',
-    title: '2. Simmetrie e intersezioni con gli assi',
-    theory: RATIONAL_THEORY.symmetry,
-    text,
+    key: 'intersections',
+    title: '3. Intersezioni con gli assi',
+    theory: RATIONAL_THEORY.intersections,
+    prompt: ['Prova a calcolare tu l’intersezione con l’asse y (calcola f(0)) e le intersezioni con l’asse x (risolvi f(x) = 0).'],
+    answer,
     formulas: [],
     graphOps,
   };
@@ -142,7 +173,7 @@ function symmetryStep({ numerator, denominator, fn, denomRoots }) {
 function signStep({ fn, numRoots, denomRoots }) {
   const breakpoints = Array.from(new Set([...numRoots, ...denomRoots]));
   const intervals = signIntervals(fn, breakpoints, RANGE);
-  const text = intervals.map((iv) => {
+  const answer = intervals.map((iv) => {
     const fromLabel = iv.from === RANGE.from ? '-∞' : fmtNum(iv.from);
     const toLabel = iv.to === RANGE.to ? '+∞' : fmtNum(iv.to);
     const verdict = iv.sign > 0 ? 'f(x) > 0' : iv.sign < 0 ? 'f(x) < 0' : 'f(x) = 0';
@@ -151,9 +182,10 @@ function signStep({ fn, numRoots, denomRoots }) {
 
   return {
     key: 'sign',
-    title: '3. Segno della funzione',
+    title: '4. Segno della funzione',
     theory: RATIONAL_THEORY.sign,
-    text: text.length ? text : ['Non è stato possibile determinare il segno in modo automatico.'],
+    prompt: ['Prova a costruire tu la tabella dei segni, usando gli zeri di numeratore e denominatore trovati finora.'],
+    answer: answer.length ? answer : ['Non è stato possibile determinare il segno in modo automatico.'],
     formulas: [],
     graphOps: [],
   };
@@ -213,60 +245,62 @@ function polyLongDivide(numerator, denominator) {
 }
 
 function limitsStep({ verticals, horizontal, oblique, infiniteBehaviorNote, degN, degD }) {
-  const text = [];
+  const answer = [];
 
   verticals.forEach((v) => {
     const leftArrow = v.leftSign > 0 ? '+∞' : '-∞';
     const rightArrow = v.rightSign > 0 ? '+∞' : '-∞';
-    text.push(`Per x → ${fmtNum(v.x)}⁻: f(x) → ${leftArrow}.  Per x → ${fmtNum(v.x)}⁺: f(x) → ${rightArrow}.`);
+    answer.push(`Per x → ${fmtNum(v.x)}⁻: f(x) → ${leftArrow}.  Per x → ${fmtNum(v.x)}⁺: f(x) → ${rightArrow}.`);
   });
 
   if (horizontal) {
-    text.push(`Per x → ±∞: f(x) → ${fmtNum(horizontal.y)}.`);
+    answer.push(`Per x → ±∞: f(x) → ${fmtNum(horizontal.y)}.`);
   } else if (oblique) {
-    text.push(`Per x → ±∞: f(x) si comporta come la retta y = ${fmtLine(oblique.m, oblique.q)}.`);
+    answer.push(`Per x → ±∞: f(x) si comporta come la retta y = ${fmtLine(oblique.m, oblique.q)}.`);
   } else if (infiniteBehaviorNote !== null) {
-    text.push(`Per x → ±∞: f(x) → ±∞ (il grado del numeratore supera di più di 1 quello del denominatore).`);
+    answer.push(`Per x → ±∞: f(x) → ±∞ (il grado del numeratore supera di più di 1 quello del denominatore).`);
   }
 
   if (!verticals.length && !horizontal && !oblique && infiniteBehaviorNote === null) {
-    text.push('Nessun limite notevole da segnalare: la funzione è definita su tutto ℝ e ha comportamento regolare.');
+    answer.push('Nessun limite notevole da segnalare: la funzione è definita su tutto ℝ e ha comportamento regolare.');
   }
 
   return {
     key: 'limits',
-    title: '4. Limiti agli estremi del dominio',
+    title: '5. Limiti agli estremi del dominio',
     theory: RATIONAL_THEORY.limits,
-    text,
+    prompt: ['Prova a calcolare tu i limiti agli estremi del dominio e nei punti esclusi dal denominatore.'],
+    answer,
     formulas: [],
     graphOps: [],
   };
 }
 
 function asymptotesStep({ verticals, horizontal, oblique }) {
-  const text = [];
+  const answer = [];
   const graphOps = [];
 
   if (verticals.length) {
-    text.push(`Asintoti verticali: x = ${verticals.map((v) => fmtNum(v.x)).join(', ')}.`);
+    answer.push(`Asintoti verticali: x = ${verticals.map((v) => fmtNum(v.x)).join(', ')}.`);
     verticals.forEach((v) => graphOps.push({ type: 'asymptoteV', x: v.x }));
   }
   if (horizontal) {
-    text.push(`Asintoto orizzontale: y = ${fmtNum(horizontal.y)}.`);
+    answer.push(`Asintoto orizzontale: y = ${fmtNum(horizontal.y)}.`);
     graphOps.push({ type: 'asymptoteH', y: horizontal.y });
   } else if (oblique) {
-    text.push(`Asintoto obliquo: y = ${fmtLine(oblique.m, oblique.q)}.`);
+    answer.push(`Asintoto obliquo: y = ${fmtLine(oblique.m, oblique.q)}.`);
     graphOps.push({ type: 'asymptoteO', m: oblique.m, q: oblique.q });
   }
-  if (!text.length) {
-    text.push('Non ci sono asintoti.');
+  if (!answer.length) {
+    answer.push('Non ci sono asintoti.');
   }
 
   return {
     key: 'asymptotes',
-    title: '5. Asintoti',
+    title: '6. Asintoti',
     theory: RATIONAL_THEORY.asymptotes,
-    text,
+    prompt: ['In base ai limiti appena calcolati, prova a dedurre tu quali asintoti (verticali, orizzontali o obliqui) ci sono.'],
+    answer,
     formulas: [],
     graphOps,
   };
@@ -284,7 +318,7 @@ function monotonicityStep({ node, fn, denomRoots }) {
   const breakpoints = Array.from(new Set([...criticalPoints, ...denomRoots]));
   const intervals = signIntervals(derivativeFn, breakpoints, RANGE);
 
-  const text = intervals.map((iv) => {
+  const answer = intervals.map((iv) => {
     const fromLabel = iv.from === RANGE.from ? '-∞' : fmtNum(iv.from);
     const toLabel = iv.to === RANGE.to ? '+∞' : fmtNum(iv.to);
     const verdict = iv.sign > 0 ? 'crescente' : iv.sign < 0 ? 'decrescente' : 'costante';
@@ -303,16 +337,17 @@ function monotonicityStep({ node, fn, denomRoots }) {
     }
     if (kind) {
       const y = fn(x);
-      text.push(`x = ${fmtNum(x)} è un punto di ${kind === 'max' ? 'massimo' : 'minimo'} relativo (f(${fmtNum(x)}) = ${fmtNum(y)}).`);
+      answer.push(`x = ${fmtNum(x)} è un punto di ${kind === 'max' ? 'massimo' : 'minimo'} relativo (f(${fmtNum(x)}) = ${fmtNum(y)}).`);
       graphOps.push({ type: 'extremum', x, y, kind });
     }
   });
 
   return {
     key: 'monotonicity',
-    title: '6. Derivata prima: crescenza e decrescenza',
+    title: '7. Derivata prima: crescenza e decrescenza',
     theory: RATIONAL_THEORY.monotonicity,
-    text,
+    prompt: ['Prova a calcolare tu la derivata prima f\'(x) e a studiarne il segno per dedurre dove la funzione cresce o decresce, e classificare i punti critici.'],
+    answer,
     formulas: [`f'(x) = ${toLatexSafe(derivativeNode)}`],
     graphOps,
   };
@@ -331,7 +366,7 @@ function concavityStep({ node, fn, denomRoots }) {
   const breakpoints = Array.from(new Set([...inflectionCandidates, ...denomRoots]));
   const intervals = signIntervals(secondFn, breakpoints, RANGE);
 
-  const text = intervals.map((iv) => {
+  const answer = intervals.map((iv) => {
     const fromLabel = iv.from === RANGE.from ? '-∞' : fmtNum(iv.from);
     const toLabel = iv.to === RANGE.to ? '+∞' : fmtNum(iv.to);
     const verdict = iv.sign > 0 ? 'concava verso l’alto (convessa)' : iv.sign < 0 ? 'concava verso il basso' : 'a curvatura nulla';
@@ -343,18 +378,20 @@ function concavityStep({ node, fn, denomRoots }) {
     if (denomRoots.some((d) => Math.abs(d - x) < 1e-3)) return;
     const y = fn(x);
     if (Number.isFinite(y)) {
-      text.push(`x = ${fmtNum(x)} è un punto di flesso (f(${fmtNum(x)}) = ${fmtNum(y)}).`);
+      answer.push(`x = ${fmtNum(x)} è un punto di flesso (f(${fmtNum(x)}) = ${fmtNum(y)}).`);
       graphOps.push({ type: 'point', x, y, label: 'flesso' });
     }
   });
 
   return {
     key: 'concavity',
-    title: '7. Derivata seconda: concavità e flessi',
+    title: '8. Derivata seconda: concavità e flessi',
     theory: RATIONAL_THEORY.concavity,
-    text,
+    prompt: ['Prova a calcolare tu la derivata seconda f\'\'(x) e a studiarne il segno per dedurre la concavità e i punti di flesso.'],
+    answer,
     formulas: [`f''(x) = ${toLatexSafe(d2)}`],
     graphOps,
+    revealsCurve: true,
   };
 }
 

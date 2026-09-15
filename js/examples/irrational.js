@@ -8,8 +8,17 @@ const sqrtExample = {
   exprLatex: '\\sqrt{4 - x^{2}}',
   steps: [
     {
-      title: '1. Dominio',
+      title: '1. Dominio — quali vincoli imporre?',
       theory: IRRATIONAL_THEORY.domain,
+      text: [
+        'Osserva la funzione prima di calcolare: è una radice quadrata, f(x) = √(4 - x²).',
+        'Vincolo da imporre: il radicando deve essere maggiore o uguale a zero (una radice quadrata non è definita per valori negativi).',
+        'Prova a stabilire da solo per quali x vale 4 - x² ≥ 0. La soluzione è nel passo successivo.',
+      ],
+      formulas: [],
+    },
+    {
+      title: '2. Dominio — la soluzione',
       text: [
         '4 - x² ≥ 0 → x² ≤ 4 → -2 ≤ x ≤ 2.',
         'Dominio: [-2, 2].',
@@ -17,7 +26,7 @@ const sqrtExample = {
       formulas: [],
     },
     {
-      title: '2. Simmetrie e intersezioni con gli assi',
+      title: '3. Simmetrie e intersezioni con gli assi',
       theory: IRRATIONAL_THEORY.symmetry,
       text: [
         'Il dominio [-2, 2] è simmetrico rispetto all’origine: il test si può applicare.',
@@ -28,25 +37,25 @@ const sqrtExample = {
       formulas: [],
     },
     {
-      title: '3. Segno della funzione',
+      title: '4. Segno della funzione',
       theory: IRRATIONAL_THEORY.sign,
       text: ['f(x) ≥ 0 su tutto il dominio; f(x) = 0 solo per x = ±2.'],
       formulas: [],
     },
     {
-      title: '4. Limiti agli estremi del dominio',
+      title: '5. Limiti agli estremi del dominio',
       theory: IRRATIONAL_THEORY.limits,
       text: ['Il dominio [-2, 2] è limitato: non ci sono limiti a ±∞. Agli estremi x = -2 e x = 2 la funzione è continua e vale 0 (nessun asintoto verticale).'],
       formulas: [],
     },
     {
-      title: '5. Asintoti',
+      title: '6. Asintoti',
       theory: IRRATIONAL_THEORY.asymptotes,
       text: ['Nessun asintoto: il dominio è limitato e la funzione è continua sui bordi.'],
       formulas: [],
     },
     {
-      title: '6. Derivata prima: crescenza e decrescenza',
+      title: '7. Derivata prima: crescenza e decrescenza',
       theory: IRRATIONAL_THEORY.monotonicity,
       text: [
         'Si deriva usando la regola della catena: la derivata di √g(x) è g\'(x) / (2√g(x)).',
@@ -58,7 +67,7 @@ const sqrtExample = {
       formulas: [],
     },
     {
-      title: '7. Derivata seconda: concavità e flessi',
+      title: '8. Derivata seconda: concavità e flessi',
       theory: IRRATIONAL_THEORY.concavity,
       text: [
         'f\'\'(x) = -4 / (4 - x²)^{3/2}.',

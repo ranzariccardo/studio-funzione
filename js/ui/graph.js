@@ -16,12 +16,13 @@ export function addGraphOps(ops) {
   currentAnnotations.push(...(ops || []));
 }
 
-export function renderGraph(containerId) {
+export function renderGraph(containerId, options = {}) {
   const el = document.getElementById(containerId);
   if (!el || !currentFnExpr) return;
   el.innerHTML = '';
 
-  const data = [{ fn: currentFnExpr, graphType: 'polyline', color: '#3b5bdb' }];
+  const showCurve = options.showCurve !== false;
+  const data = showCurve ? [{ fn: currentFnExpr, graphType: 'polyline', color: '#3b5bdb' }] : [];
   const annotations = [];
 
   currentAnnotations.forEach((op) => {
@@ -31,6 +32,10 @@ export function renderGraph(containerId) {
       annotations.push({ y: op.y, text: `y = ${round2(op.y)}` });
     } else if (op.type === 'asymptoteO') {
       data.push({ fn: `${op.m}*x + ${op.q}`, graphType: 'polyline', color: '#adb5bd', nSamples: 200 });
+    } else if (op.type === 'domainBand') {
+      data.push({ fn: '0', range: [op.from, op.to], graphType: 'polyline', color: '#2f9e44', nSamples: 2, skipTip: true });
+    } else if (op.type === 'domainBandExcluded') {
+      data.push({ fn: '0.3', range: [op.from, op.to], graphType: 'polyline', color: '#e03131', nSamples: 2, skipTip: true });
     } else if (op.type === 'point') {
       data.push({
         points: [[op.x, op.y]],

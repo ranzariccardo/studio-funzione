@@ -1,13 +1,17 @@
-// irrational.js — i 7 passi dello studio di funzione per funzioni del tipo
+// irrational.js — gli 8 passi dello studio di funzione per funzioni del tipo
 // f(x) = sqrt(g(x)), con g razionale (polinomiale o fratta). E' il caso
 // classico affrontato al liceo prima delle forme irrazionali composte.
+// Ogni passo mostra sempre teoria + domanda ("prompt"); la risposta viene
+// rivelata dall'utente con un bottone (vedi js/ui/steps.js), e solo allora
+// le sue graphOps vengono aggiunte al grafico (gestito da js/app.js).
 
 import { rationalToCoefficients, extractSqrtRadicand, compile, toLatex, round } from './parser.js';
-import { realRootsPoly, signIntervals, numericRealRoots, polyDegree } from './roots.js';
+import { realRootsPoly, signIntervals, numericRealRoots, polyDegree, clipIntervals, complementIntervals } from './roots.js';
 import { IRRATIONAL_THEORY } from '../theory.js';
 
 const EPS = 1e-4;
 const RANGE = { from: -30, to: 30 };
+const VIEW_DOMAIN = { from: -10, to: 10 };
 
 function fmtNum(x) {
   return `${round(x, 4)}`;
@@ -31,8 +35,9 @@ export function computeSteps({ node }) {
   const domainIntervals = gSignIntervals.filter((iv) => iv.sign >= 0);
 
   const steps = [];
-  steps.push(domainStep({ domainIntervals, denomRoots }));
-  steps.push(symmetryStep({ numerator, fn, domainIntervals }));
+  steps.push(domainStep({ domainIntervals, denomRoots, isFraction }));
+  steps.push(symmetryStep({ numerator }));
+  steps.push(intersectionsStep({ numRoots, fn, domainIntervals }));
   steps.push(signStep({ numRoots, domainIntervals }));
   steps.push(limitsStep({ numerator, denominator, gFn, denomRoots, isFraction }));
   steps.push(asymptotesStep({ numerator, denominator, denomRoots, isFraction }));
@@ -42,22 +47,37 @@ export function computeSteps({ node }) {
   return steps;
 }
 
-function domainStep({ domainIntervals, denomRoots }) {
-  const graphOps = [];
+function domainStep({ domainIntervals, denomRoots, isFraction }) {
+  const prompt = [
+    'Osserva la funzione prima di calcolare: è una radice quadrata, f(x) = √g(x).',
+    'Vincolo da imporre: il radicando deve essere maggiore o uguale a zero (una radice quadrata non è definita per valori negativi).',
+  ];
+  if (isFraction) {
+    prompt.push('Il radicando g(x) è a sua volta una frazione: anche il suo denominatore deve essere diverso da zero.');
+  }
+  prompt.push('Prova a stabilire da solo per quali x vale questo vincolo.');
+
   const parts = domainIntervals.map((iv) => {
     const fromLabel = iv.from === RANGE.from ? '-∞' : fmtNum(iv.from);
     const toLabel = iv.to === RANGE.to ? '+∞' : fmtNum(iv.to);
     return `[${fromLabel}, ${toLabel}]`;
   });
 
+  const acceptedClipped = clipIntervals(domainIntervals, VIEW_DOMAIN);
+  const rejectedClipped = complementIntervals(acceptedClipped, VIEW_DOMAIN);
+
+  const graphOps = [
+    ...acceptedClipped.map((iv) => ({ type: 'domainBand', from: iv.from, to: iv.to })),
+    ...rejectedClipped.map((iv) => ({ type: 'domainBandExcluded', from: iv.from, to: iv.to })),
+  ];
   denomRoots.forEach((x) => graphOps.push({ type: 'exclude', x }));
 
   return {
     key: 'domain',
     title: '1. Dominio',
     theory: IRRATIONAL_THEORY.domain,
-    text: [
-      'La quantità sotto radice deve essere maggiore o uguale a zero (e il denominatore, se presente, diverso da zero).',
+    prompt,
+    answer: [
       parts.length ? `Dominio: ${parts.join(' ∪ ')}.` : 'Il dominio risulta vuoto per questa funzione.',
     ],
     formulas: [],
@@ -65,103 +85,130 @@ function domainStep({ domainIntervals, denomRoots }) {
   };
 }
 
-function symmetryStep({ numerator, fn, domainIntervals }) {
+function symmetryStep({ numerator }) {
   const n = numerator.length - 1;
   const neg = numerator.map((c, i) => (((n - i) % 2 === 0) ? c : -c));
   const isEven = neg.every((v, i) => Math.abs(v - numerator[i]) < 1e-6);
 
-  const text = [isEven
+  const answer = [isEven
     ? 'Il radicando è una funzione pari: anche f(x) = √g(x) è pari (simmetrica rispetto all’asse y).'
     : 'La funzione non è né pari né dispari.'];
 
+  return {
+    key: 'symmetry',
+    title: '2. Simmetrie',
+    theory: IRRATIONAL_THEORY.symmetry,
+    prompt: ['Prova a stabilire da solo se questa funzione è pari, dispari o nessuna delle due: guarda se il radicando g(x) è una funzione pari.'],
+    answer,
+    formulas: [],
+    graphOps: [],
+  };
+}
+
+function intersectionsStep({ numRoots, fn, domainIntervals }) {
+  const answer = [];
   const graphOps = [];
+
   const zeroInDomain = domainIntervals.some((iv) => iv.from <= 0 && 0 <= iv.to);
   if (zeroInDomain) {
     const y0 = fn(0);
     if (Number.isFinite(y0)) {
-      text.push(`Intersezione con l’asse y: (0, ${fmtNum(y0)}).`);
+      answer.push(`Intersezione con l’asse y: (0, ${fmtNum(y0)}).`);
       graphOps.push({ type: 'point', x: 0, y: y0, label: `(0, ${fmtNum(y0)})` });
     }
+  } else {
+    answer.push('x = 0 non appartiene al dominio: nessuna intersezione con l’asse y.');
+  }
+
+  const inDomainRoots = numRoots.filter((r) => domainIntervals.some((iv) => iv.from - 1e-6 <= r && r <= iv.to + 1e-6));
+  if (inDomainRoots.length) {
+    const list = inDomainRoots.map(fmtNum).join(', ');
+    answer.push(`Intersezioni con l’asse x: x = ${list}.`);
+    inDomainRoots.forEach((x) => graphOps.push({ type: 'point', x, y: 0, label: `(${fmtNum(x)}, 0)` }));
+  } else {
+    answer.push('Nessuna intersezione con l’asse x.');
   }
 
   return {
-    key: 'symmetry',
-    title: '2. Simmetrie e intersezioni con gli assi',
-    theory: IRRATIONAL_THEORY.symmetry,
-    text,
+    key: 'intersections',
+    title: '3. Intersezioni con gli assi',
+    theory: IRRATIONAL_THEORY.intersections,
+    prompt: ['Prova a calcolare tu l’intersezione con l’asse y (calcola f(0), se 0 appartiene al dominio) e le intersezioni con l’asse x (risolvi g(x) = 0, controllando che siano nel dominio).'],
+    answer,
     formulas: [],
     graphOps,
   };
 }
 
 function signStep({ numRoots, domainIntervals }) {
-  const text = ['f(x) = √g(x) è sempre ≥ 0 dove è definita (per definizione di radice quadrata).'];
+  const answer = ['f(x) = √g(x) è sempre ≥ 0 dove è definita (per definizione di radice quadrata).'];
   if (numRoots.length) {
     const inDomain = numRoots.filter((r) => domainIntervals.some((iv) => iv.from - 1e-6 <= r && r <= iv.to + 1e-6));
     if (inDomain.length) {
-      text.push(`f(x) = 0 per x = ${inDomain.map(fmtNum).join(', ')}; altrove f(x) > 0.`);
+      answer.push(`f(x) = 0 per x = ${inDomain.map(fmtNum).join(', ')}; altrove f(x) > 0.`);
     }
   }
   return {
     key: 'sign',
-    title: '3. Segno della funzione',
+    title: '4. Segno della funzione',
     theory: IRRATIONAL_THEORY.sign,
-    text,
+    prompt: ['Ricorda: una radice quadrata è sempre ≥ 0. Prova a stabilire tu dove f(x) = 0 (dove si annulla il radicando).'],
+    answer,
     formulas: [],
     graphOps: [],
   };
 }
 
 function limitsStep({ numerator, denominator, gFn, denomRoots, isFraction }) {
-  const text = [];
+  const answer = [];
 
   denomRoots.forEach((x) => {
     const right = gFn(x + EPS);
     const left = gFn(x - EPS);
     const rightOk = Number.isFinite(right) && right > 0;
     const leftOk = Number.isFinite(left) && left > 0;
-    if (rightOk) text.push(`Per x → ${fmtNum(x)}⁺: f(x) → +∞.`);
-    if (leftOk) text.push(`Per x → ${fmtNum(x)}⁻: f(x) → +∞.`);
+    if (rightOk) answer.push(`Per x → ${fmtNum(x)}⁺: f(x) → +∞.`);
+    if (leftOk) answer.push(`Per x → ${fmtNum(x)}⁻: f(x) → +∞.`);
   });
 
-  const degG = polyDegree(numerator) - (isFraction ? polyDegree(denominator) : 0);
   const leadRatio = numerator[0] / (isFraction ? denominator[0] : 1);
 
   if (isFraction) {
     if (polyDegree(numerator) < polyDegree(denominator)) {
-      text.push('Per x → ±∞: g(x) → 0, quindi f(x) → 0 (asintoto orizzontale y = 0).');
+      answer.push('Per x → ±∞: g(x) → 0, quindi f(x) → 0 (asintoto orizzontale y = 0).');
     } else if (polyDegree(numerator) === polyDegree(denominator)) {
       const L = leadRatio;
-      text.push(L >= 0
+      answer.push(L >= 0
         ? `Per x → ±∞: f(x) → √${fmtNum(L)} = ${fmtNum(Math.sqrt(L))}.`
         : 'Per x → ±∞: g(x) diventa negativo, quella zona è fuori dal dominio.');
     } else {
-      text.push('Per x → ±∞: g(x) → +∞ (se il coefficiente direttivo è positivo), quindi f(x) → +∞.');
+      answer.push('Per x → ±∞: g(x) → +∞ (se il coefficiente direttivo è positivo), quindi f(x) → +∞.');
     }
   } else {
     if (leadRatio > 0) {
-      text.push('Per x → ±∞: g(x) → +∞, quindi f(x) → +∞.');
+      answer.push('Per x → ±∞: g(x) → +∞, quindi f(x) → +∞.');
     } else {
-      text.push('Per x → ±∞: g(x) → -∞, quella zona è fuori dal dominio.');
+      answer.push('Per x → ±∞: g(x) → -∞, quella zona è fuori dal dominio.');
     }
   }
 
   return {
     key: 'limits',
-    title: '4. Limiti agli estremi del dominio',
+    title: '5. Limiti agli estremi del dominio',
     theory: IRRATIONAL_THEORY.limits,
-    text,
+    prompt: ['Prova a calcolare tu il comportamento di f(x) ai bordi del dominio e, se il dominio è illimitato, per x → ±∞.'],
+    answer,
     formulas: [],
     graphOps: [],
   };
 }
 
 function asymptotesStep({ numerator, denominator, denomRoots, isFraction }) {
-  const text = [];
+  const answer = [];
   const graphOps = [];
 
   denomRoots.forEach((x) => {
-    text.push(`Asintoto verticale: x = ${fmtNum(x)}.`);
+    answer.push(`Asintoto verticale: x = ${fmtNum(x)}.`);
     graphOps.push({ type: 'asymptoteV', x });
   });
 
@@ -169,11 +216,11 @@ function asymptotesStep({ numerator, denominator, denomRoots, isFraction }) {
     const L = numerator[0] / denominator[0];
     if (L >= 0) {
       const y = Math.sqrt(L);
-      text.push(`Asintoto orizzontale: y = ${fmtNum(y)}.`);
+      answer.push(`Asintoto orizzontale: y = ${fmtNum(y)}.`);
       graphOps.push({ type: 'asymptoteH', y });
     }
   } else if (isFraction && polyDegree(numerator) < polyDegree(denominator)) {
-    text.push('Asintoto orizzontale: y = 0.');
+    answer.push('Asintoto orizzontale: y = 0.');
     graphOps.push({ type: 'asymptoteH', y: 0 });
   }
 
@@ -183,20 +230,21 @@ function asymptotesStep({ numerator, denominator, denomRoots, isFraction }) {
     if (a > 0) {
       const sq = Math.sqrt(a);
       const q = b / (2 * sq);
-      text.push(`Per x → +∞: asintoto obliquo y = ${fmtNum(sq)}x + ${fmtNum(q)}.`);
-      text.push(`Per x → -∞: asintoto obliquo y = ${fmtNum(-sq)}x - ${fmtNum(q)}.`);
+      answer.push(`Per x → +∞: asintoto obliquo y = ${fmtNum(sq)}x + ${fmtNum(q)}.`);
+      answer.push(`Per x → -∞: asintoto obliquo y = ${fmtNum(-sq)}x - ${fmtNum(q)}.`);
       graphOps.push({ type: 'asymptoteO', m: sq, q });
       graphOps.push({ type: 'asymptoteO', m: -sq, q: -q });
     }
   }
 
-  if (!text.length) text.push('Non ci sono asintoti.');
+  if (!answer.length) answer.push('Non ci sono asintoti.');
 
   return {
     key: 'asymptotes',
-    title: '5. Asintoti',
+    title: '6. Asintoti',
     theory: IRRATIONAL_THEORY.asymptotes,
-    text,
+    prompt: ['In base ai limiti appena calcolati, prova a dedurre tu se ci sono asintoti verticali, orizzontali o obliqui.'],
+    answer,
     formulas: [],
     graphOps,
   };
@@ -209,7 +257,7 @@ function monotonicityStep({ node, fn }) {
   const criticalPoints = numericRealRoots(derivativeFn, RANGE);
   const intervals = signIntervals(derivativeFn, criticalPoints, RANGE);
 
-  const text = intervals.map((iv) => {
+  const answer = intervals.map((iv) => {
     const fromLabel = iv.from === RANGE.from ? '-∞' : fmtNum(iv.from);
     const toLabel = iv.to === RANGE.to ? '+∞' : fmtNum(iv.to);
     const verdict = iv.sign > 0 ? 'crescente' : iv.sign < 0 ? 'decrescente' : 'costante';
@@ -228,7 +276,7 @@ function monotonicityStep({ node, fn }) {
     if (kind) {
       const y = fn(x);
       if (Number.isFinite(y)) {
-        text.push(`x = ${fmtNum(x)} è un punto di ${kind === 'max' ? 'massimo' : 'minimo'} relativo (f(${fmtNum(x)}) = ${fmtNum(y)}).`);
+        answer.push(`x = ${fmtNum(x)} è un punto di ${kind === 'max' ? 'massimo' : 'minimo'} relativo (f(${fmtNum(x)}) = ${fmtNum(y)}).`);
         graphOps.push({ type: 'extremum', x, y, kind });
       }
     }
@@ -236,9 +284,10 @@ function monotonicityStep({ node, fn }) {
 
   return {
     key: 'monotonicity',
-    title: '6. Derivata prima: crescenza e decrescenza',
+    title: '7. Derivata prima: crescenza e decrescenza',
     theory: IRRATIONAL_THEORY.monotonicity,
-    text,
+    prompt: ['Prova a calcolare tu la derivata prima (regola della catena: g\'(x) / (2√g(x))) e a studiarne il segno.'],
+    answer,
     formulas: [`f'(x) = ${toLatexSafe(derivativeNode)}`],
     graphOps,
   };
@@ -252,7 +301,7 @@ function concavityStep({ node, fn }) {
   const inflectionCandidates = numericRealRoots(secondFn, RANGE);
   const intervals = signIntervals(secondFn, inflectionCandidates, RANGE);
 
-  const text = intervals.map((iv) => {
+  const answer = intervals.map((iv) => {
     const fromLabel = iv.from === RANGE.from ? '-∞' : fmtNum(iv.from);
     const toLabel = iv.to === RANGE.to ? '+∞' : fmtNum(iv.to);
     const verdict = iv.sign > 0 ? 'concava verso l’alto (convessa)' : iv.sign < 0 ? 'concava verso il basso' : 'a curvatura nulla';
@@ -263,18 +312,20 @@ function concavityStep({ node, fn }) {
   inflectionCandidates.forEach((x) => {
     const y = fn(x);
     if (Number.isFinite(y)) {
-      text.push(`x = ${fmtNum(x)} è un punto di flesso (f(${fmtNum(x)}) = ${fmtNum(y)}).`);
+      answer.push(`x = ${fmtNum(x)} è un punto di flesso (f(${fmtNum(x)}) = ${fmtNum(y)}).`);
       graphOps.push({ type: 'point', x, y, label: 'flesso' });
     }
   });
 
   return {
     key: 'concavity',
-    title: '7. Derivata seconda: concavità e flessi',
+    title: '8. Derivata seconda: concavità e flessi',
     theory: IRRATIONAL_THEORY.concavity,
-    text,
+    prompt: ['Prova a calcolare tu la derivata seconda e a studiarne il segno per dedurre la concavità e i punti di flesso.'],
+    answer,
     formulas: [`f''(x) = ${toLatexSafe(d2)}`],
     graphOps,
+    revealsCurve: true,
   };
 }
 

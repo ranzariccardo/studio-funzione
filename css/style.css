@@ -222,6 +222,27 @@ math-field:focus-within {
 
 .btn-primary:hover { opacity: 0.9; }
 
+.reveal-btn {
+  display: block;
+  margin: 0.5rem 0 0.25rem;
+}
+
+.answer-box {
+  margin-top: 0.75rem;
+  padding: 0.85rem 1rem;
+  background: var(--secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+}
+
+.answer-box p {
+  margin: 0 0 0.5rem;
+}
+
+.answer-box p:last-child {
+  margin-bottom: 0;
+}
+
 .btn-secondary {
   background: var(--background);
   color: var(--foreground);

@@ -102,6 +102,47 @@ export function signAt(fn, x) {
   return y > 0 ? 1 : -1;
 }
 
+// interseca due liste di intervalli {from,to} (non necessariamente ordinate).
+function intersectTwo(a, b) {
+  const result = [];
+  a.forEach((ia) => {
+    b.forEach((ib) => {
+      const from = Math.max(ia.from, ib.from);
+      const to = Math.min(ia.to, ib.to);
+      if (to > from + 1e-9) result.push({ from, to });
+    });
+  });
+  return result;
+}
+
+// interseca N liste di intervalli {from,to}. Lista vuota di liste = nessun
+// vincolo, quindi l'intero range viene restituito.
+export function intersectIntervals(sets, view) {
+  if (!sets.length) return [{ from: view.from, to: view.to }];
+  return sets.reduce((acc, set) => intersectTwo(acc, set));
+}
+
+// restringe una lista di intervalli {from,to} al range visibile del grafico.
+export function clipIntervals(intervals, view) {
+  return intervals
+    .map((iv) => ({ from: Math.max(iv.from, view.from), to: Math.min(iv.to, view.to) }))
+    .filter((iv) => iv.to > iv.from + 1e-9);
+}
+
+// calcola gli intervalli complementari (il resto) di una lista di intervalli
+// non sovrapposti, dentro il range visibile del grafico.
+export function complementIntervals(intervals, view) {
+  const sorted = intervals.slice().sort((a, b) => a.from - b.from);
+  const gaps = [];
+  let cursor = view.from;
+  sorted.forEach((iv) => {
+    if (iv.from > cursor + 1e-9) gaps.push({ from: cursor, to: iv.from });
+    cursor = Math.max(cursor, iv.to);
+  });
+  if (cursor < view.to - 1e-9) gaps.push({ from: cursor, to: view.to });
+  return gaps;
+}
+
 // costruisce gli intervalli di segno di fn dati dei punti di rottura
 // (radici + punti esclusi dal dominio). from/to definiscono il range visibile.
 export function signIntervals(fn, breakpoints, { from = -60, to = 60 } = {}) {

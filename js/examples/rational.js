@@ -8,13 +8,21 @@ const polyExample = {
   exprLatex: 'x^{3} - 3x',
   steps: [
     {
-      title: '1. Dominio',
+      title: '1. Dominio — quali vincoli imporre?',
       theory: RATIONAL_THEORY.domain,
+      text: [
+        'Osserva la funzione prima di calcolare: f(x) = x³ - 3x è un polinomio, senza frazioni, radici o altre componenti che impongano vincoli.',
+        'Nessun vincolo da imporre. Prova a dedurre da solo il dominio, poi verifica nel passo successivo.',
+      ],
+      formulas: [],
+    },
+    {
+      title: '2. Dominio — la soluzione',
       text: ['Esempio: f(x) = x³ - 3x è un polinomio: non ci sono vincoli da imporre, quindi il dominio è tutto ℝ.'],
       formulas: [],
     },
     {
-      title: '2. Simmetrie e intersezioni con gli assi',
+      title: '3. Simmetrie e intersezioni con gli assi',
       theory: RATIONAL_THEORY.symmetry,
       text: [
         'Il dominio (ℝ) è simmetrico rispetto all’origine: il test si può applicare.',
@@ -25,7 +33,7 @@ const polyExample = {
       formulas: [],
     },
     {
-      title: '3. Segno della funzione',
+      title: '4. Segno della funzione',
       theory: RATIONAL_THEORY.sign,
       text: [
         'f(x) = x(x - √3)(x + √3).',
@@ -35,7 +43,7 @@ const polyExample = {
       formulas: [],
     },
     {
-      title: '4. Limiti agli estremi del dominio',
+      title: '5. Limiti agli estremi del dominio',
       theory: RATIONAL_THEORY.limits,
       text: [
         'Per un polinomio, agli estremi del dominio (±∞) conta solo il termine di grado massimo e il suo segno.',
@@ -45,13 +53,13 @@ const polyExample = {
       formulas: [],
     },
     {
-      title: '5. Asintoti',
+      title: '6. Asintoti',
       theory: RATIONAL_THEORY.asymptotes,
       text: ['Un polinomio di grado maggiore di 1 non ha mai asintoti: nessun asintoto per questa funzione.'],
       formulas: [],
     },
     {
-      title: '6. Derivata prima: crescenza e decrescenza',
+      title: '7. Derivata prima: crescenza e decrescenza',
       theory: RATIONAL_THEORY.monotonicity,
       text: [
         'f\'(x) = 3x² - 3 = 3(x - 1)(x + 1).',
@@ -63,7 +71,7 @@ const polyExample = {
       formulas: [],
     },
     {
-      title: '7. Derivata seconda: concavità e flessi',
+      title: '8. Derivata seconda: concavità e flessi',
       theory: RATIONAL_THEORY.concavity,
       text: [
         'f\'\'(x) = 6x.',
@@ -81,13 +89,22 @@ const fractionExample = {
   exprLatex: '\\frac{x^{2}-1}{x-2}',
   steps: [
     {
-      title: '1. Dominio',
+      title: '1. Dominio — quali vincoli imporre?',
       theory: RATIONAL_THEORY.domain,
+      text: [
+        'Osserva la funzione prima di calcolare: è una frazione, quindi ha un denominatore.',
+        'Vincolo da imporre: il denominatore deve essere diverso da zero — una frazione non è definita se si divide per zero.',
+        'Prova a stabilire da solo per quali x il denominatore x - 2 si annulla. La soluzione è nel passo successivo.',
+      ],
+      formulas: [],
+    },
+    {
+      title: '2. Dominio — la soluzione',
       text: ['Il denominatore x - 2 si annulla per x = 2. Dominio: ℝ \\ {2}.'],
       formulas: [],
     },
     {
-      title: '2. Simmetrie e intersezioni con gli assi',
+      title: '3. Simmetrie e intersezioni con gli assi',
       theory: RATIONAL_THEORY.symmetry,
       text: [
         'f(-x) non coincide né con f(x) né con -f(x): la funzione non è né pari né dispari.',
@@ -97,7 +114,7 @@ const fractionExample = {
       formulas: [],
     },
     {
-      title: '3. Segno della funzione',
+      title: '4. Segno della funzione',
       theory: RATIONAL_THEORY.sign,
       text: [
         'N(x) = (x-1)(x+1) > 0 per x < -1 o x > 1. D(x) = x - 2 > 0 per x > 2.',
@@ -107,7 +124,7 @@ const fractionExample = {
       formulas: [],
     },
     {
-      title: '4. Limiti agli estremi del dominio',
+      title: '5. Limiti agli estremi del dominio',
       theory: RATIONAL_THEORY.limits,
       text: [
         'Per x → 2⁻: f(x) → -∞. Per x → 2⁺: f(x) → +∞.',
@@ -116,7 +133,7 @@ const fractionExample = {
       formulas: [],
     },
     {
-      title: '5. Asintoti',
+      title: '6. Asintoti',
       theory: RATIONAL_THEORY.asymptotes,
       text: [
         'Asintoto verticale: x = 2.',
@@ -125,7 +142,7 @@ const fractionExample = {
       formulas: [],
     },
     {
-      title: '6. Derivata prima: crescenza e decrescenza',
+      title: '7. Derivata prima: crescenza e decrescenza',
       theory: RATIONAL_THEORY.monotonicity,
       text: [
         'f\'(x) = (x² - 4x + 1) / (x - 2)².',
@@ -136,7 +153,7 @@ const fractionExample = {
       formulas: [],
     },
     {
-      title: '7. Derivata seconda: concavità e flessi',
+      title: '8. Derivata seconda: concavità e flessi',
       theory: RATIONAL_THEORY.concavity,
       text: [
         'f\'\'(x) = 6 / (x - 2)³.',

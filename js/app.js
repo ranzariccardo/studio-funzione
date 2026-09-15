@@ -1,6 +1,7 @@
 import { parseFunction } from './engine/parser.js';
 import * as rationalEngine from './engine/rational.js';
 import * as irrationalEngine from './engine/irrational.js';
+import * as compositeEngine from './engine/composite.js';
 import rationalExamples from './examples/rational.js';
 import irrationalExamples from './examples/irrational.js';
 import { renderStep, renderStepper } from './ui/steps.js';
@@ -24,6 +25,12 @@ const TYPE_LABELS = {
   'rational-poly': 'funzione razionale polinomiale',
   'rational-fraction': 'funzione razionale fratta',
   irrational: 'funzione irrazionale (radice quadrata)',
+  composite: 'funzione composta',
+};
+
+const ENGINES = {
+  irrational: irrationalEngine,
+  composite: compositeEngine,
 };
 
 let state = null;
@@ -61,7 +68,7 @@ function startGuided(type) {
 }
 
 function startComputed(parsed) {
-  const engine = parsed.type === 'irrational' ? irrationalEngine : rationalEngine;
+  const engine = ENGINES[parsed.type] || rationalEngine;
   const steps = engine.computeSteps({ node: parsed.node });
 
   state = {
@@ -69,18 +76,28 @@ function startComputed(parsed) {
     type: parsed.type,
     steps,
     currentIndex: 0,
+    revealed: new Array(steps.length).fill(false),
     exprString: parsed.node.toString(),
   };
 
-  el.graphWrap.hidden = false;
   showStudySection();
   renderCurrentStep();
 }
 
 function renderCurrentStep() {
   const step = state.steps[state.currentIndex];
+  const revealed = state.mode === 'computed' ? !!state.revealed[state.currentIndex] : true;
 
-  renderStep({ titleId: 'step-title', bodyId: 'step-body', step });
+  renderStep({
+    titleId: 'step-title',
+    bodyId: 'step-body',
+    step,
+    revealed,
+    onReveal: () => {
+      state.revealed[state.currentIndex] = true;
+      renderCurrentStep();
+    },
+  });
   renderStepper('stepper', state.steps, state.currentIndex, (i) => {
     state.currentIndex = i;
     renderCurrentStep();
@@ -90,11 +107,16 @@ function renderCurrentStep() {
   el.nextBtn.textContent = state.currentIndex === state.steps.length - 1 ? 'Fine' : 'Passo successivo →';
 
   if (state.mode === 'computed') {
-    resetGraph(state.exprString, [-10, 10]);
-    for (let i = 0; i <= state.currentIndex; i++) {
-      addGraphOps(state.steps[i].graphOps);
+    const anyRevealed = state.revealed.slice(0, state.currentIndex + 1).some(Boolean);
+    el.graphWrap.hidden = !anyRevealed;
+    if (anyRevealed) {
+      resetGraph(state.exprString, [-10, 10]);
+      for (let i = 0; i <= state.currentIndex; i++) {
+        if (state.revealed[i]) addGraphOps(state.steps[i].graphOps);
+      }
+      const showCurve = revealed && step.revealsCurve === true;
+      renderGraph('graph', { showCurve });
     }
-    renderGraph('graph');
   }
 }
 
@@ -113,7 +135,8 @@ el.startBtn.addEventListener('click', () => {
     return;
   }
 
-  el.detectedBanner.textContent = `Ho riconosciuto: ${TYPE_LABELS[parsed.type]}. Calcolo lo studio di funzione su f(x) = ${parsed.node.toString()}.`;
+  const compositeNote = parsed.type === 'composite' ? ' Per ora, per le funzioni composte, calcoliamo solo il dominio.' : '';
+  el.detectedBanner.textContent = `Ho riconosciuto: ${TYPE_LABELS[parsed.type]}. Calcolo lo studio di funzione su f(x) = ${parsed.node.toString()}.${compositeNote}`;
   el.detectedBanner.hidden = false;
 
   try {
