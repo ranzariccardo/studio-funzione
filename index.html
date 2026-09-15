@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Studio di Funzione — guida passo passo</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Google+Sans+Flex:wght@400;500;600;700&display=swap" />
+  <link rel="stylesheet" href="css/style.css" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css" />
+</head>
+<body>
+  <header class="site-header">
+    <h1>Studio di Funzione</h1>
+    <p class="subtitle">Una guida passo passo, con o senza la tua funzione</p>
+  </header>
+
+  <main>
+    <section id="setup" class="card">
+      <h2>1. Scegli come iniziare</h2>
+
+      <div class="field">
+        <label for="function-input">La tua funzione f(x)</label>
+        <div class="math-input-row">
+          <math-field id="function-input"></math-field>
+        </div>
+        <p class="hint">es. (x²-1)/(x-3) oppure √(4-x²) — scrivi con la tastiera del computer o tocca l’icona ⌨ nel campo per i simboli matematici. Il tipo (razionale, irrazionale…) viene riconosciuto automaticamente da quello che scrivi.</p>
+      </div>
+
+      <div class="divider"><span>oppure</span></div>
+
+      <div class="field">
+        <label for="type-select">Non hai una funzione? Scegli un esempio guidato</label>
+        <select id="type-select">
+          <option value="rational-poly">Razionale polinomiale (es. x^3 - 3x)</option>
+          <option value="rational-fraction">Razionale fratta (es. (x^2-1)/(x-3))</option>
+          <option value="irrational">Irrazionale — √g(x) (es. sqrt(4-x^2))</option>
+        </select>
+        <p class="hint">Se hai scritto una funzione sopra, questa scelta viene ignorata: parte lo studio calcolato sulla tua funzione.</p>
+      </div>
+
+      <div id="detected-banner" class="banner" hidden></div>
+      <div id="error-banner" class="banner banner-error" hidden></div>
+
+      <button id="start-btn" class="btn-primary">Inizia lo studio</button>
+    </section>
+
+    <section id="study" class="card" hidden>
+      <div class="stepper" id="stepper"></div>
+
+      <div class="step-content">
+        <h2 id="step-title"></h2>
+        <div id="step-body"></div>
+      </div>
+
+      <div id="graph-wrap" hidden>
+        <div id="graph"></div>
+      </div>
+
+      <div class="step-nav">
+        <button id="prev-btn" class="btn-secondary">← Passo precedente</button>
+        <button id="restart-btn" class="btn-secondary">Ricomincia</button>
+        <button id="next-btn" class="btn-primary">Passo successivo →</button>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <p>Progetto didattico — funzioni razionali e irrazionali (√). Altri tipi in arrivo.</p>
+  </footer>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjs/11.11.1/math.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/function-plot/1.24.3/function-plot.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mathlive@0.110.0/mathlive.min.js"></script>
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>
