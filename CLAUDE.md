@@ -5,6 +5,9 @@ Sito web statico, responsive, gratuito (hosting GitHub Pages, sottodominio
 liceo attraverso lo studio di funzione passo-passo — con la propria
 funzione (calcolo automatico) o senza (teoria + esempio guidato fisso).
 
+**Online:** https://ranzariccardo.github.io/studio-funzione/
+**Repo:** https://github.com/ranzariccardo/studio-funzione
+
 Piano approvato di riferimento: `C:\Users\richi\.claude\plans\purring-swinging-pixel.md`.
 Documento di teoria più ampio (11 moduli, roadmap futura, non ancora
 integrato oltre ai Moduli 1,2,4,5,6): `percorso.md` nella root del progetto.
@@ -75,6 +78,22 @@ sito_mate/
   calcolata): nessun overflow orizzontale, MathLive e formule KaTeX (anche
   f''(x) con frazioni annidate) si adattano correttamente, breakpoint
   `max-width:480px` attivo. Trovato 1 problema minore (vedi Da fare)
+- Restyle UI in stile shadcn/ui (decisione esplicita: solo CSS, architettura
+  vanilla JS/no-build invariata — niente React/Tailwind). Token (palette
+  zinc, radius 8px, ombre, altezze bottoni/input) verificati dai sorgenti
+  del pacchetto Flutter `shadcn_ui` in `C:\Users\richi\Downloads\shadcn_ui-0.56.1`
+  (font Google Sans Flex via Google Fonts)
+- Ristrutturato lo step 1 (`index.html`/`css/style.css`): il campo funzione
+  è ora il percorso primario (il tipo si riconosce sempre in automatico dal
+  parser); il dropdown "tipo di funzione" è stato rietichettato come
+  "esempio guidato" perché nel codice (`app.js`) viene letto solo quando il
+  campo funzione è vuoto — prima il testo lasciava intendere (erroneamente)
+  che servisse da conferma del tipo anche con una funzione inserita
+- Repository git inizializzato, primo commit fatto, repo GitHub creato e
+  collegato come remote: https://github.com/ranzariccardo/studio-funzione
+  (pubblico, necessario per GitHub Pages gratuito), push di `master` fatto
+- GitHub Pages attivato (branch `master`, root) e verificato online (200
+  OK): **https://ranzariccardo.github.io/studio-funzione/**
 
 ### Da fare
 - Bug minore UI mobile: lo scroll/wheel sopra il grafico (function-plot)
@@ -84,20 +103,10 @@ sito_mate/
   function-plot o limitarlo). Trovato verificando la vista mobile nel
   browser (375×812, via iframe perché Chrome su desktop non permette
   finestre più strette di ~557px).
-- Inizializzare repository git, primo commit, remote GitHub
-- Attivare GitHub Pages (branch `main`, root) e verificare l'URL `.github.io`
-- Eventuale evoluzione UI verso shadcn (richiede React + Tailwind + build
-  step: cambio di architettura rispetto all'attuale sito statico senza
-  build — da valutare esplicitamente, non da avviare in autonomia)
 
 ### Ultimo task eseguito
-Costruzione della prima versione funzionante del sito: creati
-`index.html`, `css/style.css`, `js/app.js`, `js/theory.js`,
-`js/engine/{parser,roots,rational,irrational}.js`,
-`js/ui/{steps,graph}.js`, `js/examples/{rational,irrational}.js`,
-`README.md`. Aggiunto input matematico MathLive in `index.html`/`js/app.js`.
-Corretti i 2 bug sopra elencati in `js/engine/rational.js`,
-`js/engine/irrational.js`, `js/engine/parser.js`.
+Attivato GitHub Pages sul repo `studio-funzione` (branch `master`, root),
+verificato che l'URL pubblico risponde 200. Il sito è online.
 
 ### Prossimo step
 Su richiesta esplicita dell'utente: procedere a piccoli passi (una
