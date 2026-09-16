@@ -313,6 +313,7 @@ math-field:focus-within {
 }
 
 #graph-wrap {
+  position: relative;
   margin: 1.25rem 0;
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
@@ -324,6 +325,25 @@ math-field:focus-within {
   max-width: 100%;
   overflow-x: auto;
 }
+
+/* frecce "tende a ±∞" agli angoli del grafico: ancorate al riquadro (non ai
+   dati di function-plot), restano quindi sempre al bordo visibile a ogni
+   livello di zoom/pan. */
+.graph-trend {
+  position: absolute;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #1c7ed6;
+  background: color-mix(in srgb, var(--card) 85%, transparent);
+  padding: 0.1rem 0.35rem;
+  border-radius: var(--radius-sm);
+  pointer-events: none;
+}
+
+.graph-trend-tl { top: 0.5rem; left: 0.5rem; }
+.graph-trend-tr { top: 0.5rem; right: 0.5rem; }
+.graph-trend-bl { bottom: 0.5rem; left: 0.5rem; }
+.graph-trend-br { bottom: 0.5rem; right: 0.5rem; }
 
 .step-nav {
   display: flex;

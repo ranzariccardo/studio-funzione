@@ -10,7 +10,10 @@ import { RATIONAL_THEORY } from '../theory.js';
 
 const EPS = 1e-4;
 const RANGE = { from: -30, to: 30 };
-const VIEW_DOMAIN = { from: -10, to: 10 };
+// per le bande del grafico: un estremo "infinito" (== bordo di RANGE) viene
+// esteso fino a qui invece che tagliato alla vista iniziale, così la banda
+// resta piena anche zoomando indietro.
+const GRAPH_INFINITY = 1e4;
 
 function arraysApproxEqual(a, b, tol = 1e-6) {
   const len = Math.max(a.length, b.length);
@@ -68,7 +71,7 @@ export function computeSteps({ node }) {
   steps.push(intersectionsStep({ numerator, fn, denomRoots }));
   steps.push(signStep({ numerator, denominator, fn, numRoots, denomRoots }));
 
-  const limitsData = computeLimitsAndAsymptotes({ numerator, denominator, fn, verticalCandidates });
+  const limitsData = computeLimitsAndAsymptotes({ numerator, denominator, fn, verticalCandidates, isFraction });
   steps.push(limitsStep(limitsData));
   steps.push(asymptotesStep(limitsData));
   steps.push(monotonicityStep({ node, fn, denomRoots }));
@@ -89,7 +92,7 @@ function domainStep({ denomRoots, isFraction }) {
         'Nessun vincolo da imporre. Prova a dedurre da solo il dominio.',
       ];
 
-  const graphOps = [{ type: 'domainBand', from: VIEW_DOMAIN.from, to: VIEW_DOMAIN.to }];
+  const graphOps = [{ type: 'domainBand', from: -GRAPH_INFINITY, to: GRAPH_INFINITY }];
   let answer;
   if (!isFraction || denomRoots.length === 0) {
     answer = ['Il denominatore non si annulla mai (o la funzione è un polinomio): il dominio è tutto ℝ.'];
@@ -180,6 +183,14 @@ function signStep({ fn, numRoots, denomRoots }) {
     return `Per ${fromLabel} < x < ${toLabel}: ${verdict}.`;
   });
 
+  const graphOps = [];
+  intervals.forEach((iv) => {
+    if (iv.sign === 0) return;
+    const from = iv.from === RANGE.from ? -GRAPH_INFINITY : iv.from;
+    const to = iv.to === RANGE.to ? GRAPH_INFINITY : iv.to;
+    graphOps.push({ type: 'signForbidden', from, to, side: iv.sign > 0 ? 'below' : 'above' });
+  });
+
   return {
     key: 'sign',
     title: '4. Segno della funzione',
@@ -187,11 +198,11 @@ function signStep({ fn, numRoots, denomRoots }) {
     prompt: ['Prova a costruire tu la tabella dei segni, usando gli zeri di numeratore e denominatore trovati finora.'],
     answer: answer.length ? answer : ['Non è stato possibile determinare il segno in modo automatico.'],
     formulas: [],
-    graphOps: [],
+    graphOps,
   };
 }
 
-function computeLimitsAndAsymptotes({ numerator, denominator, fn, verticalCandidates }) {
+function computeLimitsAndAsymptotes({ numerator, denominator, fn, verticalCandidates, isFraction }) {
   const degN = polyDegree(numerator);
   const degD = polyDegree(denominator);
   const leadN = numerator[0];
@@ -210,6 +221,8 @@ function computeLimitsAndAsymptotes({ numerator, denominator, fn, verticalCandid
   let horizontal = null;
   let oblique = null;
   let infiniteBehaviorNote = null;
+  let trendLeft = null;
+  let trendRight = null;
 
   if (degN < degD) {
     horizontal = { y: 0 };
@@ -218,12 +231,19 @@ function computeLimitsAndAsymptotes({ numerator, denominator, fn, verticalCandid
   } else if (degN === degD + 1) {
     const { quotient } = polyLongDivide(numerator, denominator);
     oblique = { m: round(quotient[0], 4), q: round(quotient[1] ?? 0, 4) };
+    trendRight = oblique.m > 0 ? 'up' : 'down';
+    trendLeft = oblique.m > 0 ? 'down' : 'up';
   } else {
     const sign = Math.sign(leadN / leadD);
     infiniteBehaviorNote = sign;
+    // per x → +∞, x^(degN-degD) → +∞ sempre; per x → -∞ dipende dalla parità
+    // dell'esponente (pari: → +∞ come a destra; dispari: segno opposto).
+    const evenGap = (degN - degD) % 2 === 0;
+    trendRight = sign > 0 ? 'up' : 'down';
+    trendLeft = (sign > 0) === evenGap ? 'up' : 'down';
   }
 
-  return { degN, degD, verticals, horizontal, oblique, infiniteBehaviorNote };
+  return { degN, degD, verticals, horizontal, oblique, infiniteBehaviorNote, trendLeft, trendRight, isFraction };
 }
 
 function polyLongDivide(numerator, denominator) {
@@ -244,7 +264,7 @@ function polyLongDivide(numerator, denominator) {
   return { quotient, remainder };
 }
 
-function limitsStep({ verticals, horizontal, oblique, infiniteBehaviorNote, degN, degD }) {
+function limitsStep({ verticals, horizontal, oblique, infiniteBehaviorNote, degN, degD, trendLeft, trendRight, isFraction }) {
   const answer = [];
 
   verticals.forEach((v) => {
@@ -265,14 +285,27 @@ function limitsStep({ verticals, horizontal, oblique, infiniteBehaviorNote, degN
     answer.push('Nessun limite notevole da segnalare: la funzione è definita su tutto ℝ e ha comportamento regolare.');
   }
 
+  const graphOps = [];
+  if (trendLeft) graphOps.push({ type: 'trendEdge', side: 'left', direction: trendLeft });
+  if (trendRight) graphOps.push({ type: 'trendEdge', side: 'right', direction: trendRight });
+
+  const prompt = [];
+  if (verticals.length) {
+    const plural = verticals.length > 1;
+    prompt.push(`Vicino ${plural ? 'ai punti esclusi dal denominatore' : 'al punto escluso dal denominatore'}: non è una forma indeterminata (il numeratore lì non si annulla) — è un numero diviso 0. Metodo: regola del segno, segno(numeratore) × segno con cui il denominatore si avvicina a 0.`);
+  }
+  prompt.push(isFraction
+    ? 'Per x → ±∞: forma ∞/∞ (numeratore e denominatore divergono entrambi). Metodo: dividi numeratore e denominatore per x elevato al grado più alto tra i due.'
+    : 'Per x → ±∞: non è una forma indeterminata (è un solo polinomio) — decide il termine di grado massimo.');
+
   return {
     key: 'limits',
     title: '5. Limiti agli estremi del dominio',
     theory: RATIONAL_THEORY.limits,
-    prompt: ['Prova a calcolare tu i limiti agli estremi del dominio e nei punti esclusi dal denominatore.'],
+    prompt,
     answer,
     formulas: [],
-    graphOps: [],
+    graphOps,
   };
 }
 

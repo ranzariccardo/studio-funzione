@@ -183,8 +183,77 @@ sito_mate/
   pedice della tastiera MathLive produce ascii-math che math.js interpreta
   come moltiplicazione implicita insensata, non come log in base 10 (va
   scritto `log10(x)` come testo semplice).
+- **Teoria di Simmetrie, Intersezioni, Segno e Limiti semplificata e resa
+  specifica per tipo** (razionali/irrazionali), su richiesta esplicita
+  dell'utente di spiegazioni "più semplici, sintetiche e dirette".
+  Simmetrie: tolto il passaggio sul dominio simmetrico, resta solo "calcola
+  f(-x) e confronta con f(x)". Intersezioni: asse y sempre, asse x con il
+  vincolo tipico del tipo (fratte: non annullare anche il denominatore;
+  irrazionali: equivale a g(x)=0, nessuna soluzione estranea). Segno:
+  richiamo esplicito alla disequazione, vincolo tipico per tipo (fratte:
+  escludere gli zeri del denominatore dalla tabella; irrazionali: il segno
+  coincide col dominio, nessuna tabella necessaria). **Limiti** (ultima
+  iterazione, la più sostanziale): la teoria statica in `theory.js` è stata
+  ridotta a una riga generica che rimanda al `prompt`, che ora è generato
+  **dinamicamente per punto** in `js/engine/{rational,irrational}.js`
+  (`limitsStep`) in base alla funzione specifica riconosciuta — per ogni
+  punto in cui va calcolato un limite dice se è una forma indeterminata o
+  no e il metodo migliore (razionali: regola del segno ai punti esclusi se
+  non indeterminato, altrimenti forma 0/0 → scomposizione; forma ∞/∞ per
+  x→±∞ se è una frazione → dividi per il grado più alto, altrimenti nessuna
+  forma indeterminata; irrazionali: stessa logica applicata al radicando
+  g(x), più il suggerimento di raccogliere x² sotto radice per g di secondo
+  grado). Un tentativo intermedio (teoria statica con tutti i casi
+  possibili elencati in prosa, compresi limiti notevoli/equivalenti
+  asintotici/gerarchia degli infiniti da `percorso.md` Modulo 3) è stato
+  scartato dopo feedback esplicito ("troppe info") — quei tre strumenti non
+  sono comunque rilevanti per funzioni senza esponenziali/log/goniometriche
+  (fuori scope attuale).
+- **Zone rosse "escluse dal piano" nel grafico** (dominio e segno), al
+  posto della semplice linea piatta usata prima. Tecnica: sfrutta il flag
+  `closed: true` di function-plot (fill automatico verso l'asse x — stessa
+  libreria, nessuna manipolazione di internals), estratta in un helper
+  `pushForbiddenBand` in `js/ui/graph.js`. Passo Segno: rosso sopra l'asse
+  dove f(x)<0, sotto dove f(x)>0 (razionali); sotto l'asse su tutto il
+  dominio per le irrazionali (dato che √g(x) è sempre ≥0 dove esiste).
+  Passo Dominio: la banda escludeva prima solo con una riga, ora è un'area
+  piena su tutta l'altezza.
+- **Fix bande che non seguivano lo zoom del grafico**: le bande di
+  dominio/segno erano ancorate ai limiti della vista iniziale (-10/10)
+  invece di estendersi davvero all'infinito dove l'intervallo è aperto —
+  zoomando indietro restavano "intrappolate" in un quadrato. Corretto in
+  `js/ui/graph.js` (altezza verticale delle bande portata a ±10000 invece
+  che ai limiti della vista) e in `js/engine/{rational,irrational,
+  composite}.js` (estensione orizzontale a ±10000 solo quando l'estremo
+  dell'intervallo coincide col bordo del range di calcolo interno, cioè è
+  davvero infinito — gli estremi finiti/le radici vere restano esatti,
+  non si allargano).
+- **Asintoti disegnati in blu** (verticali, orizzontali, obliqui) invece
+  del colore di default/grigio, tramite l'override `attr` sulle
+  annotazioni di function-plot (confermato leggendo il sorgente della
+  libreria) — i marcatori di dominio escluso (non asintoti) restano
+  invariati.
+- **Frecce "tende a ±∞" agli angoli del grafico** per il comportamento
+  x→±∞ nel passo Limiti (solo questo caso, non vicino agli asintoti
+  verticali — scope deciso esplicitamente con l'utente dopo aver spiegato
+  il compromesso affidabilità/completezza). Sono elementi DOM ancorati via
+  CSS agli angoli di `#graph-wrap` (non ai dati di function-plot), quindi
+  restano al bordo del grafico visibile a qualunque zoom senza bisogno di
+  agganciarsi allo zoom interno della libreria. `js/engine/rational.js`
+  calcola la direzione corretta per lato (segno di m per l'asintoto
+  obliquo, parità del grado per la divergenza pura); `js/engine/
+  irrational.js` mostra la freccia solo verso l'alto (√g(x) non può
+  divergere a -∞) e solo sul lato dove il dominio si estende davvero fino
+  a quell'estremo.
 
 ### Da fare
+- **Verificare visivamente nel browser tutte le modifiche al grafico di
+  questa sessione** (zone rosse piene, fix zoom, asintoti blu, frecce agli
+  angoli): l'estensione Claude in Chrome è rimasta disconnessa per l'intera
+  sessione, quindi è stata verificata solo la sintassi (`node --check`),
+  mai il rendering reale. L'utente ha un server locale già avviato
+  (`http://localhost:8934`, vedi comandi in cronologia) ma non ha ancora
+  dato conferma esplicita che il risultato visivo sia corretto.
 - Bug minore UI mobile: lo scroll/wheel sopra il grafico (function-plot)
   viene intercettato dallo zoom/pan del grafico invece di scorrere la
   pagina — su mobile rischia di "intrappolare" l'utente che scorre
@@ -205,20 +274,27 @@ sito_mate/
   pattern nell'albero prima del parsing.
 
 ### Ultimo task eseguito
-Aggiunto il riconoscimento delle funzioni composte e il calcolo generale
-del dominio, su richiesta esplicita dell'utente di procedere passo passo
-partendo dal dominio. Trovati e corretti 2 bug reali testando con
-MathLive vero (non solo stringhe scritte a mano): alias di nomi funzione
-mancanti (arcsin/arccos/arctan/ln) e notazione dominio contraddittoria
-per vincoli stretti. File toccati: `js/engine/composite.js` (nuovo),
-`js/engine/parser.js` (nuovo tipo `'composite'`, `FUNCTION_ALIASES`),
-`js/engine/roots.js` (helper `intersectIntervals`), `js/theory.js`
-(`COMPOSITE_THEORY`), `js/app.js` (`ENGINES` map, banner di
-riconoscimento). Verificato nel browser, nessun errore console.
+Sessione di rifinitura delle spiegazioni e del grafico per i passi
+Simmetrie, Intersezioni, Segno e Limiti (razionali/irrazionali), su una
+serie di richieste puntuali dell'utente. Il pezzo più corposo: reso
+dinamico il `prompt` del passo Limiti (forma indeterminata + metodo, per
+punto, in base al tipo di funzione e alla funzione specifica), dopo che un
+primo tentativo con teoria statica esaustiva è stato respinto ("troppe
+info"). Aggiunte anche le zone rosse piene (dominio/segno) al posto della
+linea piatta, un fix per far seguire lo zoom alle bande (prima restavano
+ancorate al quadrato -10/10 iniziale), asintoti in blu, e frecce "tende a
+±∞" agli angoli del grafico per il passo Limiti. File toccati:
+`js/theory.js`, `js/engine/rational.js`, `js/engine/irrational.js`,
+`js/engine/composite.js`, `js/ui/graph.js`, `css/style.css`, `index.html`.
+Verificata solo la sintassi (`node --check`): l'estensione Claude in
+Chrome è rimasta disconnessa per tutta la sessione, **nessuna verifica
+visiva nel browser fatta da Claude** (vedi Da fare).
 
 ### Prossimo step
-Da concordare con l'utente. Note aperte: (1) prossimo passo di analisi
-per le funzioni composte da scegliere insieme (probabilmente simmetria o
+Prima di tutto: verificare visivamente nel browser le modifiche al
+grafico di questa sessione (vedi Da fare) — non ancora confermato che il
+rendering sia corretto. Poi, da concordare con l'utente: (1) prossimo
+passo di analisi per le funzioni composte (probabilmente simmetria o
 segno prima di affrontare il punto critico di limiti/asintoti); (2)
 l'utente valuta di rimuovere il dropdown "esempio guidato" dallo step 1
 — non toccare quella parte senza conferma; (3) bug minore scroll sul

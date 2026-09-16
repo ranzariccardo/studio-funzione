@@ -6,15 +6,25 @@
 // le sue graphOps vengono aggiunte al grafico (gestito da js/app.js).
 
 import { rationalToCoefficients, extractSqrtRadicand, compile, toLatex, round } from './parser.js';
-import { realRootsPoly, signIntervals, numericRealRoots, polyDegree, clipIntervals, complementIntervals } from './roots.js';
+import { realRootsPoly, signIntervals, numericRealRoots, polyDegree, complementIntervals } from './roots.js';
 import { IRRATIONAL_THEORY } from '../theory.js';
 
 const EPS = 1e-4;
 const RANGE = { from: -30, to: 30 };
-const VIEW_DOMAIN = { from: -10, to: 10 };
+// per le bande del grafico: un estremo "infinito" (== bordo di RANGE) viene
+// esteso fino a qui invece che tagliato alla vista iniziale, così la banda
+// resta piena anche zoomando indietro.
+const GRAPH_INFINITY = 1e4;
 
 function fmtNum(x) {
   return `${round(x, 4)}`;
+}
+
+function toGraphExtent(iv) {
+  return {
+    from: iv.from === RANGE.from ? -GRAPH_INFINITY : iv.from,
+    to: iv.to === RANGE.to ? GRAPH_INFINITY : iv.to,
+  };
 }
 
 export function computeSteps({ node }) {
@@ -39,7 +49,7 @@ export function computeSteps({ node }) {
   steps.push(symmetryStep({ numerator }));
   steps.push(intersectionsStep({ numRoots, fn, domainIntervals }));
   steps.push(signStep({ numRoots, domainIntervals }));
-  steps.push(limitsStep({ numerator, denominator, gFn, denomRoots, isFraction }));
+  steps.push(limitsStep({ numerator, denominator, gFn, denomRoots, isFraction, domainIntervals }));
   steps.push(asymptotesStep({ numerator, denominator, denomRoots, isFraction }));
   steps.push(monotonicityStep({ node, fn }));
   steps.push(concavityStep({ node, fn }));
@@ -63,12 +73,11 @@ function domainStep({ domainIntervals, denomRoots, isFraction }) {
     return `[${fromLabel}, ${toLabel}]`;
   });
 
-  const acceptedClipped = clipIntervals(domainIntervals, VIEW_DOMAIN);
-  const rejectedClipped = complementIntervals(acceptedClipped, VIEW_DOMAIN);
+  const rejectedIntervals = complementIntervals(domainIntervals, RANGE);
 
   const graphOps = [
-    ...acceptedClipped.map((iv) => ({ type: 'domainBand', from: iv.from, to: iv.to })),
-    ...rejectedClipped.map((iv) => ({ type: 'domainBandExcluded', from: iv.from, to: iv.to })),
+    ...domainIntervals.map((iv) => ({ type: 'domainBand', ...toGraphExtent(iv) })),
+    ...rejectedIntervals.map((iv) => ({ type: 'domainBandExcluded', ...toGraphExtent(iv) })),
   ];
   denomRoots.forEach((x) => graphOps.push({ type: 'exclude', x }));
 
@@ -148,6 +157,10 @@ function signStep({ numRoots, domainIntervals }) {
       answer.push(`f(x) = 0 per x = ${inDomain.map(fmtNum).join(', ')}; altrove f(x) > 0.`);
     }
   }
+
+  const graphOps = domainIntervals
+    .map((iv) => ({ type: 'signForbidden', ...toGraphExtent(iv), side: 'below' }));
+
   return {
     key: 'sign',
     title: '4. Segno della funzione',
@@ -155,11 +168,11 @@ function signStep({ numRoots, domainIntervals }) {
     prompt: ['Ricorda: una radice quadrata è sempre ≥ 0. Prova a stabilire tu dove f(x) = 0 (dove si annulla il radicando).'],
     answer,
     formulas: [],
-    graphOps: [],
+    graphOps,
   };
 }
 
-function limitsStep({ numerator, denominator, gFn, denomRoots, isFraction }) {
+function limitsStep({ numerator, denominator, gFn, denomRoots, isFraction, domainIntervals }) {
   const answer = [];
 
   denomRoots.forEach((x) => {
@@ -192,14 +205,38 @@ function limitsStep({ numerator, denominator, gFn, denomRoots, isFraction }) {
     }
   }
 
+  // √g(x) può solo divergere verso +∞ (mai -∞); mostriamo la freccia solo sul
+  // lato in cui il dominio si estende davvero fino a quell'estremo.
+  const divergesAtInfinity = isFraction ? polyDegree(numerator) > polyDegree(denominator) : true;
+  const extendsLeft = domainIntervals.some((iv) => iv.from === RANGE.from);
+  const extendsRight = domainIntervals.some((iv) => iv.to === RANGE.to);
+  const graphOps = [];
+  if (divergesAtInfinity) {
+    if (extendsLeft) graphOps.push({ type: 'trendEdge', side: 'left', direction: 'up' });
+    if (extendsRight) graphOps.push({ type: 'trendEdge', side: 'right', direction: 'up' });
+  }
+
+  const prompt = [];
+  if (denomRoots.length) {
+    const plural = denomRoots.length > 1;
+    prompt.push(`Vicino ${plural ? 'ai punti esclusi dal denominatore del radicando' : 'al punto escluso dal denominatore del radicando'}: non è una forma indeterminata. Metodo: regola del segno su g(x), poi la radice — se g(x) → +∞, anche f(x) → +∞.`);
+  }
+  if (isFraction) {
+    prompt.push('Per x → ±∞: il radicando g(x) è una frazione, quindi è una forma ∞/∞. Metodo: risolvi prima il limite di g(x) con la tecnica delle funzioni razionali (dividi per il grado più alto), poi fai la radice del risultato.');
+  } else if (polyDegree(numerator) === 2) {
+    prompt.push('Per x → ±∞: non è una forma indeterminata (g è un polinomio), ma conviene raccogliere x² sotto radice: √(x²·A) = |x|·√A — attenzione al segno di x.');
+  } else {
+    prompt.push('Per x → ±∞: non è una forma indeterminata (g è un polinomio) — decide il termine di grado massimo di g.');
+  }
+
   return {
     key: 'limits',
     title: '5. Limiti agli estremi del dominio',
     theory: IRRATIONAL_THEORY.limits,
-    prompt: ['Prova a calcolare tu il comportamento di f(x) ai bordi del dominio e, se il dominio è illimitato, per x → ±∞.'],
+    prompt,
     answer,
     formulas: [],
-    graphOps: [],
+    graphOps,
   };
 }
 

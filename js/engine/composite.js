@@ -15,14 +15,25 @@
 // vincoli.
 
 import { compile, round } from './parser.js';
-import { numericRealRoots, signIntervals, intersectIntervals, clipIntervals, complementIntervals } from './roots.js';
+import { numericRealRoots, signIntervals, intersectIntervals, complementIntervals } from './roots.js';
 import { COMPOSITE_THEORY } from '../theory.js';
 
 const RANGE = { from: -30, to: 30 };
 const VIEW_DOMAIN = { from: -10, to: 10 };
+// per le bande del grafico: un estremo "infinito" (== bordo di RANGE) viene
+// esteso fino a qui invece che tagliato alla vista iniziale, così la banda
+// resta piena anche zoomando indietro.
+const GRAPH_INFINITY = 1e4;
 
 function fmtNum(x) {
   return `${round(x, 4)}`;
+}
+
+function toGraphExtent(iv) {
+  return {
+    from: iv.from === RANGE.from ? -GRAPH_INFINITY : iv.from,
+    to: iv.to === RANGE.to ? GRAPH_INFINITY : iv.to,
+  };
 }
 
 function buildFn(name, argNode) {
@@ -150,11 +161,10 @@ function domainStep({ constraints }) {
   }
   answer.push('Gli altri passi (simmetrie, segno, limiti, asintoti, derivate) per le funzioni composte sono roadmap futura: arriveranno via via che li affrontiamo.');
 
-  const acceptedClipped = clipIntervals(acceptedIntervals, VIEW_DOMAIN);
-  const rejectedClipped = complementIntervals(acceptedClipped, VIEW_DOMAIN);
+  const rejectedIntervals = complementIntervals(acceptedIntervals, RANGE);
   const graphOps = [
-    ...acceptedClipped.map((iv) => ({ type: 'domainBand', from: iv.from, to: iv.to })),
-    ...rejectedClipped.map((iv) => ({ type: 'domainBandExcluded', from: iv.from, to: iv.to })),
+    ...acceptedIntervals.map((iv) => ({ type: 'domainBand', ...toGraphExtent(iv) })),
+    ...rejectedIntervals.map((iv) => ({ type: 'domainBandExcluded', ...toGraphExtent(iv) })),
     ...excludedInView.map((x) => ({ type: 'exclude', x })),
   ];
 
